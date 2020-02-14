@@ -86,6 +86,8 @@ var tc_gems = {
 
 // List of spells to autocast when needed without using quickbar (and interval to cast at)
 var tc_autospells = {
+  "calming murmurs": 45,
+  "soothing breeze": 45,
 	"minor mana" : 30,
 	"lesser mana" : 60,
 	"mana" : 120,
@@ -104,6 +106,8 @@ var tc_autospells = {
 	"wind sense" : 60,
 	"water sense" : 60,
 	"fire sense" : 60,
+  "whirling step" : 45,
+  "whirling step II" : 60,
 	"whirling step III" : 80,
 	"dust devil II" : 45,
 	"adamant shell" : 180,
@@ -117,12 +121,16 @@ var tc_autospells = {
 
 // One-off actions that earn gold ordered from best to worst (gold/stamina), and stamina cost/click.
 // Some also have side effects: ignore actions with negative side effects including using mana (conflict with autofocus).
-var tc_actions_gold = {
+var tc_actions_gold = { 
+  "treat ailments" : 0.2, // 5 (1) / .2
 	"advise notables" : 0.3,	// 4.5  (0.35 + .1 + .1 + .3 + .5) / .3  - after 1500 turns
 	"do chores" : 0.17,			// 2.94 (0.3 + .1 + .1) / 0.17 - after 250 turns
 	"clean stables" : 0.08,		// 2.5  (0.2 / 0.08)
 	"gather herbs" : 0.3,		// 1.33  (2 / 0.3*5) - assumes we are auto-selling surplus herbs
 };
+
+// Used to override tc_actions_gold if not empty
+var tc_auto_earn_gold_override = '';
 
 // Call this every second - will automatically pick up new spells
 function tc_populate_spells()
@@ -641,23 +649,35 @@ function tc_advsetup()
 	}
 }
 
+function tc_get_auto_earn() {
+  // Find which action we can do
+  var act = tc_auto_earn_gold_override.trim();
+  if (tc_auto_earn_gold_override.trim()) {
+    var a = tc_actions.get(act);
+		if (a && !a.disabled) {
+			return act;
+		}
+  }
+  
+  for (let act in tc_actions_gold) {
+		var a = tc_actions.get(act);
+		if (a && !a.disabled) {
+			return act;
+		}
+	}
+  
+  return undefined;
+}
+
 // Quick and dirty. Needs to be worked on to allow you to set which action to press for gold
 function tc_autoearngold()
 {
 	if (tc_suspend) return;
 	if (!tc_auto_earn_gold) return;
-
-	// Find which action we can do
-	var action = undefined;
-	for (let act in tc_actions_gold) {
-		var a = tc_actions.get(act);
-		if (a && !a.disabled) {
-			action = act;
-			break;
-		}
-	}
+  
+  var action = tc_get_auto_earn();
 	if (!action) return; 	// no money-making actions available to us
-	var stam = tc_actions_gold[action];
+	var stam = tc_actions_gold[action] || '0.3';
 
 	var amt = tc_bars.get("stamina")[0];
 	var max = tc_bars.get("stamina")[1];
@@ -750,8 +770,23 @@ function tc_autofocus_multi(amt)
 	tc_rest.click();	// Has no effect if already resting.
 }
 
+function sleep(ms) {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+function tc_is_progress_complete(skillElement) {
+  var progressRaw = skillElement.children[1].childNodes[1].data.trim().substr(10);
+  var progress = parseInt(progressRaw.split('/')[0].trim().replace('K','000'));
+  var progressMax = parseInt(progressRaw.split('/')[1].trim().replace('K','000'));
+  
+  var progressComplete = progress >= progressMax;
+  if (tc_debug) console.log("Skill progress: " + progress + " / " + progressMax + " complete " + (progressComplete ? "yes" : "no"));
+  
+  return progressComplete;
+}
+
 // Uses focus until you have only 14 mana left.
-function tc_autofocus()
+async function tc_autofocus()
 {
 	if (tc_suspend) return;
 	if (!tc_auto_focus) return;
@@ -797,12 +832,14 @@ function tc_autofocus()
 		tc_autofocus_multi(amt)	// available mana
 		return;
 	}
-1
+
 	var lowest_lvl = 1000;
 	var lowest_skill = "";
 	var lowest_btn;
 	var skill_btn;
 	var skill_to_learn = "";
+  var skill_element;
+  var lowest_element;
 	for (let qs of document.querySelectorAll(".skills .skill")) {
 		var skill = qs.firstElementChild.firstElementChild.innerHTML;
 		var btn = qs.querySelectorAll("button")[0];
@@ -813,6 +850,7 @@ function tc_autofocus()
 			skill_to_learn = skill;
 			tc_skill_saved = skill;
 			skill_btn = btn;
+      skill_element = qs;
 			if (tc_debug) console.log("Learning " + skill);
 			break;	// this takes precedence over anything else
 		}
@@ -829,20 +867,29 @@ function tc_autofocus()
 			lowest_lvl = lvl;
 			lowest_skill = skill;
 			lowest_btn = btn;
+      lowest_element = qs;
 		}
 	}
-
+  
 	if (skill_to_learn == "") {
 		if (lowest_skill == "")	// nothing available to learn
 			return;
 
 		skill_to_learn = lowest_skill;
 		skill_btn = lowest_btn;
+    skill_element = lowest_element;
 		if (tc_debug) console.log("Learn lowest skill: " + skill_to_learn);
 	}
 
-	if (skill_btn.innerHTML.trim() == "Train")
+	if (skill_btn.innerHTML.trim() == "Train") {
+    if (tc_debug) console.log("Clicking train for skill");
 		skill_btn.click();
+    
+    if (tc_is_progress_complete(skill_element)) {
+      if (tc_debug) console.log("Waiting for train to register");
+      await sleep(200);
+    }
+  }
 
 	// We're not going to be doing anything else while focussing (apart from autocast spells),
 	// so just keep enough mana for the 3 mana spells.
@@ -1132,6 +1179,7 @@ function tc_load_settings()
 	tc_auto_speed = get_val("tc_auto_speed", 1000, "int");
 	tc_auto_speed_spells = get_val("tc_auto_speed_spells", 950, "int");
 	tc_auto_earn_gold = get_val("tc_auto_earn_gold", false, "bool");
+  tc_auto_earn_gold_override = get_val("tc_auto_earn_gold_override", "", "string");
 	tc_auto_adv = get_val("tc_auto_adv", true, "bool");
 	tc_adventure_wait = get_val("tc_adventure_wait", 30, "int");	// needs to be below tc_auto_speed
 	tc_adventure_wait_cd = tc_adventure_wait;	//sets current cooldown to same time as wait period.
@@ -1150,6 +1198,7 @@ function tc_load_settings()
 	document.getElementById("tc_auto_speed").value = tc_auto_speed;
 	document.getElementById("tc_auto_speed_spells").value = tc_auto_speed_spells;
 	document.getElementById("tc_auto_earn_gold").checked = tc_auto_earn_gold;
+  document.getElementById("tc_auto_earn_gold_override").value = tc_auto_earn_gold_override;
 	document.getElementById("tc_auto_adv").checked = tc_auto_adv;
 	document.getElementById("tc_adventure_wait").value = (tc_adventure_wait / 1000 * tc_auto_speed);
 	document.getElementById("tc_auto_focus_aggressive").checked = tc_auto_focus_aggressive;
@@ -1170,6 +1219,7 @@ function tc_save_settings()
 	tc_auto_speed = parseInt(document.getElementById("tc_auto_speed").value);
 	tc_auto_speed_spells = parseInt(document.getElementById("tc_auto_speed_spells").value);
 	tc_auto_earn_gold = document.getElementById("tc_auto_earn_gold").checked;
+  tc_auto_earn_gold_override = document.getElementById("tc_auto_earn_gold_override").value;
 	tc_auto_adv = document.getElementById("tc_auto_adv").checked;
 	tc_adventure_wait = (parseInt(document.getElementById("tc_adventure_wait").value) * 1000 / tc_auto_speed );
 	tc_adventure_wait_cd = tc_adventure_wait; 	//sets current cooldown to same time as wait period.
@@ -1188,6 +1238,7 @@ function tc_save_settings()
 	localStorage.setItem("tc_auto_speed", tc_auto_speed);
 	localStorage.setItem("tc_auto_speed_spells", tc_auto_speed_spells);
 	localStorage.setItem("tc_auto_earn_gold", tc_auto_earn_gold);
+  localStorage.setItem("tc_auto_earn_gold_override", tc_auto_earn_gold_override);
 	localStorage.setItem("tc_auto_adv", tc_auto_adv);
 	localStorage.setItem("tc_adventure_wait", tc_adventure_wait);
 	localStorage.setItem("tc_auto_focus_aggressive", tc_auto_focus_aggressive);
@@ -1287,6 +1338,7 @@ function tc_config_setup()
 <input type="checkbox" name="tc_auto_gather" id="tc_auto_gather"> gather herbs when stamina is full and herbs aren't (recommend minimum 2000ms auto interval)<br>
 <input type="checkbox" name="tc_auto_grind" id="tc_auto_grind"> use the grind action when mana is full (recommend minimum 2000ms auto interval)<br>
 <input type="checkbox" name="tc_auto_earn_gold" id="tc_auto_earn_gold" title="Clicks one-off tasks like 'do chores' or 'advise notables' when you have enough stamina and you are in need of gold. "> click actions which make gold when gold is low<br>
+<input type="text"     name="tc_auto_earn_gold_override" id="tc_auto_earn_gold_override" title="Use this action to earn gold instead. ">Use this action to earn gold instead<br>
 <input type="checkbox" name="tc_auto_focus" id="tc_auto_focus"> click focus while learning skills<br>
 <input type="checkbox" name="tc_auto_cast" id="tc_auto_cast" title="e.g. mana, fount"> cast common buff spells<br>
 <input type="checkbox" name="tc_skipcast" id="tc_skipcast"> but don't cast buffs when not needed (eg. no wild growth when herbs are full)<br>
