@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name         aardvark arcanum auto - Rassena's fork
-// @version      0.10.25.0.1
+// @version      0.10.25.0.2
 // @author       aardvark, Linspatz, Harrygiel, Sing, Rassena
 // @description  Automates casting buffs, buying gems making types gems, making lore. Adds sell junk/dupe item buttons. Must open the main tab and the spells tab once to work. Add some hack feature ^^
 // @downloadURL  https://github.com/Rassena/arcanum-automation/blob/master/automate.user.js
@@ -353,7 +353,7 @@ function tc_cast_spell(spell) {
                 if (qs.children[2].firstChild.innerText.toLowerCase() == "cast") {
                     tc_spells.set(spell, qs.children[2].firstChild);
 					log("Casting: " + spell);
-					tc_spells.get(spell).click()
+					tc_spells.get(spell).click
                 }
             }
         }
@@ -1406,7 +1406,7 @@ ${button_list.join('')}
 	configbtn.class = "btn-sm";
 	configbtn.addEventListener("click", open_god_panel);
 
-	config.parentNode.insertBefore(configbtn, null);
+	document.getElementById("tc_config_help").parentNode.insertBefore(configbtn, null);
 	function_list.push('sinh_close_panel');
 	for (let n of function_list) document.getElementById(n).addEventListener("click", eval(n));
 }
@@ -1480,9 +1480,9 @@ The advanced feature "try to learn faster in skills tab" will alternate between 
 </div> `;
 
 	dummy.innerHTML = html;
-	document.body.firstElementChild.appendChild(dummy);
+	document.body.firstElementChild.lastElementChild.appendChild(dummy);
 
-	config.parentNode.insertBefore(configbtn, null);
+	config.insertBefore(configbtn, null);
 
 	var sinhbtn = document.createElement("button");
 	var t2 = document.createTextNode("Sinh's function");
@@ -1491,7 +1491,7 @@ The advanced feature "try to learn faster in skills tab" will alternate between 
 	sinhbtn.style = "margin-left: auto";	// align right in flexbox
 	sinhbtn.className = "task-btn";
 	sinhbtn.addEventListener("click", sinh_function);
-	config.parentNode.insertBefore(sinhbtn, null);
+	document.getElementById("tc_config_help").parentNode.insertBefore(sinhbtn, null);
 
 	// Now need to add the onClick handlers for the cancel/save buttons.
 	// Can't do this directly in the HTML above because the GreaseMonkey functions exist in a different namespace
