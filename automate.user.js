@@ -10,30 +10,6 @@
 // @run-at       document-idle
 // ==/UserScript==
 
-var tc_debug = false;	// set to true to see debug messages
-function log(message) {
-	if (tc_debug) return; console.log(message);
-}
-
-var tc_suspend = false;		// set this to true in console to suspend all auto functions
-
-// Setting to false will stop individual actions
-var tc_auto_misc = false;
-var tc_use_sublimate = true;
-var tc_auto_gather = false;
-var tc_auto_grind = true;
-var tc_auto_cast = false;
-var tc_skipcast = false;
-var tc_auto_focus = false;
-var tc_auto_earn_gold = false;
-var tc_auto_heal = false;
-var tc_auto_adv = false;
-var tc_auto_focus_aggressive = false;
-
-// Set to a adventure name to continously run that adventure, leave blank to disable
-var tc_auto_adventure = "";
-var tc_adventure_wait = 3;//How many ticks to wait to rerun an adventure
-var tc_adventure_wait_cd = 30;//Counts down
 
 /* The following can be increased by encounters in the adventure listed.
 (Stat) - ("dungeon name") (increased amount) (chance to get the encounter needed)
@@ -54,8 +30,44 @@ Stats:
 Arcana - "pidwig's cove" 0.05 1/6
 */
 
+
+var tc_debug = false;	// set to true to see debug messages
+var tc_suspend = false;		// set this to true in console to suspend all auto functions
+
+
+// Setting to false will stop individual actions
+var tc_auto_misc = false;
+var tc_use_sublimate = true;
+var tc_auto_gather = false;
+var tc_auto_grind = true;
+var tc_auto_cast = false;
+var tc_skipcast = false;
+var tc_auto_focus = false;
+var tc_auto_earn_gold = false;
+var tc_auto_heal = false;
+var tc_auto_adv = false;
+var tc_auto_focus_aggressive = false;
+
 var tc_auto_speed = 1000; // Speed in ms, going too low will cause performance issues.
 var tc_auto_speed_spells = 950;	// interval in ms for spell casting. should be 1000, but lag can cause spells to run out
+
+
+// Set to a adventure name to continously run that adventure, leave blank to disable
+var tc_auto_adventure = "";
+var tc_adventure_wait = 3;//How many ticks to wait to rerun an adventure
+var tc_adventure_wait_cd = 30;//Counts down
+
+
+// Used to override tc_actions_gold if not empty
+var tc_auto_earn_gold_override = '';
+
+
+// Main timer for most functions
+var tc_timer_ac;
+// Timer for spells.
+// Can't guarantee that timer will work exactly every second, so can reduce interval to compensate so spells don't run out
+var tc_timer_autocast;
+
 
 var tc_spells = new Map();
 var tc_resources = new Map();
@@ -69,12 +81,14 @@ var tc_checked_spells = 0;	// have a look at the spell tab on startup
 var tc_time_offset = 0;	// used for casting spells - this will incr. every second
 var tc_runners = 1;		// how many runners are unlocked (based on what's seen, so will be a minimum)
 
-var resoure_list = ['gold','research','arcana','scrolls','starcharts','tapestries','runestones','firerune','waterrune','spiritrune','airrune','earthrune','timerune','bodies','bones','skulls','bonedust','souls','schematic','codices','tomes','gems','managem','firegem','watergem','naturegem','earthgem','airgem','shadowgem','lightgem','spiritgem','bloodgem','timegem','voidgem','ichor','dreams','herbs','mana','fire','air','earth','water','nature','shadow','light','spirit','tempus','chaos','void'];
-var locale_list = ['loc_ageshall','mustylibrary','loc_spring','eryleyot','loc_treffil','pidwigcove','rithel','ruinedcrypt','hallofmirrors','fazbitshop','genezereth','loc_orrem','loc_ettinmoors','loc_menagerie','loc_tenwick'];
-var encounter_list = ['enc_primer1','enc_workbook1','enc_bookworm','mysticwater','manatree','enc_heather','enc_tapestry','foggydale','enc_chest1','enc_chest2','enc_chest3','enc_chest4','enc_primer2','enc_thyffr','enc_delki','enc_gnome','enc_gibber','enc_mummy','eeriemoans','strangebones','enc_embalm1','sarcophagus','enc_rats','hauntedglade','hiddencache','murkywater','enc_blackcat','enc_hest_ward','enc_cauldron','enc_hettie','enc_hestia','enc_pidwig','pidwigtreasure','starrysky1','pidwigstars','sombersunset','brightvista','enc_tome','enc_history','enc_workbook2','enc_furnace','enc_alchemy','enc_statue2','enc_statue4','enc_battle1','enc_mtpass','enc_oldstone','enc_sindel','enc_tenwick','enc_wyrd','enc_gap','enc_mirror1','enc_mirror2','enc_futuremirror','enc_rageemirror','enc_mirrorhall','enc_voidmirror','enc_watermirror','enc_pastmirror','enc_farmirror','enc_sandstorm','enc_oasis','enc_mirage','enc_orremtrade','enc_madwinds','orrem_rains','enc_orrem_cave','enc_caravan','enc_aeonclock','e_bloodgrass','e_spidermass','e_snakemass','e_agolith','e_cockatrice','e_trumple','e_balmuth','e_moss_portal','e_big_scale','e_gryffon','e_wyvern','e_hydra','e_barghest','e_phoenix','e_pogler','e_flithy','e_bestiary1','e_bestiary2']
-var task_with_length =['errands','prestidigitation','heist','spellbook','act_scry','act_concoct','act_mine','dreamweaver','spingold','bloodsiphon','graverob','murder','vileexperiment','dissect','grindbones','embalm','paidseance','trapsoul','indulge','chant','eatchildren','sabbat','a_oppress','geas','weavetapestry','craftrune','craftschematic','demonbag','mapstars','bestiary','bestiary2','compiletome','codexannih','markhulcodex','sylvansyllabary','dwarfbook','lemurlexicon','demondict','arazorannals','orremannals','malleus','terraform','remakehammer','maketitanhammer','fazbitfixate','coporisfabrica','unendingscroll','unendingcodex','unendingtome','almagest','craftgem','craftfirerune','craftearthrune','craftairrune','craftwaterrune','craftspiritrune','phylactory','up_lich','animalfriend','summonfamiliar']
-var dungeon_list = ['sunnyfield','placidgrove','pestcontrol','stonyhills','ettinmarchcamp','fetidbarrow','treffilwoods','underden','veldranswreck','aragheights','hauntedmanor','sereditetemple','goblincamp','orccamp','aragogres','spidercave','aragwastes','mtgorborung','greatbog','catacrypts','elementrift','veldransstorehouse','desillagrotto','charredkeep','belowgorborung','temple of strativax','holyhall']
+
+var resoure_list = ['gold', 'research', 'arcana', 'scrolls', 'starcharts', 'tapestries', 'runestones', 'firerune', 'waterrune', 'spiritrune', 'airrune', 'earthrune', 'timerune', 'bodies', 'bones', 'skulls', 'bonedust', 'souls', 'schematic', 'codices', 'tomes', 'gems', 'managem', 'firegem', 'watergem', 'naturegem', 'earthgem', 'airgem', 'shadowgem', 'lightgem', 'spiritgem', 'bloodgem', 'timegem', 'voidgem', 'ichor', 'dreams', 'herbs', 'mana', 'fire', 'air', 'earth', 'water', 'nature', 'shadow', 'light', 'spirit', 'tempus', 'chaos', 'void'];
+var locale_list = ['loc_ageshall', 'mustylibrary', 'loc_spring', 'eryleyot', 'loc_treffil', 'pidwigcove', 'rithel', 'ruinedcrypt', 'hallofmirrors', 'fazbitshop', 'genezereth', 'loc_orrem', 'loc_ettinmoors', 'loc_menagerie', 'loc_tenwick'];
+var encounter_list = ['enc_primer1', 'enc_workbook1', 'enc_bookworm', 'mysticwater', 'manatree', 'enc_heather', 'enc_tapestry', 'foggydale', 'enc_chest1', 'enc_chest2', 'enc_chest3', 'enc_chest4', 'enc_primer2', 'enc_thyffr', 'enc_delki', 'enc_gnome', 'enc_gibber', 'enc_mummy', 'eeriemoans', 'strangebones', 'enc_embalm1', 'sarcophagus', 'enc_rats', 'hauntedglade', 'hiddencache', 'murkywater', 'enc_blackcat', 'enc_hest_ward', 'enc_cauldron', 'enc_hettie', 'enc_hestia', 'enc_pidwig', 'pidwigtreasure', 'starrysky1', 'pidwigstars', 'sombersunset', 'brightvista', 'enc_tome', 'enc_history', 'enc_workbook2', 'enc_furnace', 'enc_alchemy', 'enc_statue2', 'enc_statue4', 'enc_battle1', 'enc_mtpass', 'enc_oldstone', 'enc_sindel', 'enc_tenwick', 'enc_wyrd', 'enc_gap', 'enc_mirror1', 'enc_mirror2', 'enc_futuremirror', 'enc_rageemirror', 'enc_mirrorhall', 'enc_voidmirror', 'enc_watermirror', 'enc_pastmirror', 'enc_farmirror', 'enc_sandstorm', 'enc_oasis', 'enc_mirage', 'enc_orremtrade', 'enc_madwinds', 'orrem_rains', 'enc_orrem_cave', 'enc_caravan', 'enc_aeonclock', 'e_bloodgrass', 'e_spidermass', 'e_snakemass', 'e_agolith', 'e_cockatrice', 'e_trumple', 'e_balmuth', 'e_moss_portal', 'e_big_scale', 'e_gryffon', 'e_wyvern', 'e_hydra', 'e_barghest', 'e_phoenix', 'e_pogler', 'e_flithy', 'e_bestiary1', 'e_bestiary2']
+var task_with_length = ['errands', 'prestidigitation', 'heist', 'spellbook', 'act_scry', 'act_concoct', 'act_mine', 'dreamweaver', 'spingold', 'bloodsiphon', 'graverob', 'murder', 'vileexperiment', 'dissect', 'grindbones', 'embalm', 'paidseance', 'trapsoul', 'indulge', 'chant', 'eatchildren', 'sabbat', 'a_oppress', 'geas', 'weavetapestry', 'craftrune', 'craftschematic', 'demonbag', 'mapstars', 'bestiary', 'bestiary2', 'compiletome', 'codexannih', 'markhulcodex', 'sylvansyllabary', 'dwarfbook', 'lemurlexicon', 'demondict', 'arazorannals', 'orremannals', 'malleus', 'terraform', 'remakehammer', 'maketitanhammer', 'fazbitfixate', 'coporisfabrica', 'unendingscroll', 'unendingcodex', 'unendingtome', 'almagest', 'craftgem', 'craftfirerune', 'craftearthrune', 'craftairrune', 'craftwaterrune', 'craftspiritrune', 'phylactory', 'up_lich', 'animalfriend', 'summonfamiliar']
+var dungeon_list = ['sunnyfield', 'placidgrove', 'pestcontrol', 'stonyhills', 'ettinmarchcamp', 'fetidbarrow', 'treffilwoods', 'underden', 'veldranswreck', 'aragheights', 'hauntedmanor', 'sereditetemple', 'goblincamp', 'orccamp', 'aragogres', 'spidercave', 'aragwastes', 'mtgorborung', 'greatbog', 'catacrypts', 'elementrift', 'veldransstorehouse', 'desillagrotto', 'charredkeep', 'belowgorborung', 'temple of strativax', 'holyhall']
 var function_list = ['un_stress', 'max_space', 'unlock_tasks_and_upgrades'];
+
 
 // List of Gems that needs to be updated manually if changed.
 var tc_gems = {
@@ -90,55 +104,75 @@ var tc_gems = {
 	"blood gem": "coagulate gem (blood)",
 };
 
+
 // List of spells to autocast when needed without using quickbar (and interval to cast at)
 var tc_autospells = {
-  "calming murmurs": 45,
-  "soothing breeze": 45,
-	"minor mana" : 30,
-	"lesser mana" : 60,
-	"mana" : 120,
-	"minor fount" : 30,
-	"fount" : 60,
-	"greater fount" : 90,
-	"wild growth" : 45,
-	"abundance" : 60,
-	"unearth" : 120,
-	"unseen servant" : 45,
-	"guided strike" : 45,
-	"true strike" : 45,
-	"perfect strike" : 45,
-	"whisper" : 50,
-	"insight" : 60,
-	"wind sense" : 60,
-	"water sense" : 60,
-	"fire sense" : 60,
-  "whirling step" : 45,
-  "whirling step II" : 60,
-	"whirling step III" : 80,
-	"dust devil II" : 45,
-	"adamant shell" : 180,
-	"pulsing light" : 45,
-	"pulsing light II" : 60,
-	"pulsing light III" : 120,
-	"copper skin" : 30,
-	"stone skin" : 50,
-	"iron skin" : 60,
+	"calming murmurs": 45,
+	"soothing breeze": 45,
+	"minor mana": 30,
+	"lesser mana": 60,
+	"mana": 120,
+	"minor fount": 30,
+	"fount": 60,
+	"greater fount": 90,
+	"wild growth": 45,
+	"abundance": 60,
+	"unearth": 120,
+	"unseen servant": 45,
+	"guided strike": 45,
+	"true strike": 45,
+	"perfect strike": 45,
+	"whisper": 50,
+	"insight": 60,
+	"wind sense": 60,
+	"water sense": 60,
+	"fire sense": 60,
+	"whirling step": 45,
+	"whirling step II": 60,
+	"whirling step III": 80,
+	"dust devil II": 45,
+	"adamant shell": 180,
+	"pulsing light": 45,
+	"pulsing light II": 60,
+	"pulsing light III": 120,
+	"copper skin": 30,
+	"stone skin": 50,
+	"iron skin": 60,
 
 };
+
 
 // One-off actions that earn gold ordered from best to worst (gold/stamina), and stamina cost/click.
 // Some also have side effects: ignore actions with negative side effects including using mana (conflict with autofocus).
-var tc_actions_gold = { 
-  "treat ailments" : 0.2, // 5 (1) / .2
-	"advise notables" : 0.3,	// 4.5  (0.35 + .1 + .1 + .3 + .5) / .3  - after 1500 turns
-	"do chores" : 0.17,			// 2.94 (0.3 + .1 + .1) / 0.17 - after 250 turns
-	"clean stables" : 0.08,		// 2.5  (0.2 / 0.08)
-	"gather herbs" : 0.3,		// 1.33  (2 / 0.3*5) - assumes we are auto-selling surplus herbs
+var tc_actions_gold = {
+	"treat ailments": 0.2, // 5 (1) / .2
+	"advise notables": 0.3,	// 4.5  (0.35 + .1 + .1 + .3 + .5) / .3  - after 1500 turns
+	"do chores": 0.17,			// 2.94 (0.3 + .1 + .1) / 0.17 - after 250 turns
+	"clean stables": 0.08,		// 2.5  (0.2 / 0.08)
+	"gather herbs": 0.3,		// 1.33  (2 / 0.3*5) - assumes we are auto-selling surplus herbs
 
 };
 
-// Used to override tc_actions_gold if not empty
-var tc_auto_earn_gold_override = '';
+
+var tc_skill_saved = "";
+var tc_skill_last = "";
+
+// Functions to load and save settings from local storage and display configuration dialog.
+var bool_setting_list = ['tc_suspend', 'tc_auto_cast', 'tc_skipcast', 'tc_auto_focus', 'tc_auto_heal', 'tc_auto_misc', 'tc_use_sublimate', 'tc_auto_gather', 'tc_auto_grind', 'tc_auto_earn_gold', 'tc_auto_adv', 'tc_adventure_wait', 'tc_auto_focus_aggressive', 'tc_debug'];
+var int_setting_list = ['tc_auto_speed_spells', 'tc_auto_speed', 'tc_adventure_wait'];
+
+var tc_menu_inv_state = 0;
+
+
+
+function log(message) {
+	if (tc_debug) return; console.log(message);
+}
+
+function sleep(ms) {
+	return new Promise(resolve => setTimeout(resolve, ms));
+}
+
 
 // Call this every second - will automatically pick up new spells
 function tc_populate_spells() {
@@ -377,7 +411,7 @@ function tc_autocast() {
 	if (!tc_auto_cast) return;
 
 	for (var spell in tc_autospells) {
-		var rpt = Math.floor(tc_autospells[spell]*1000/tc_auto_speed_spells);
+		var rpt = Math.floor(tc_autospells[spell] * 1000 / tc_auto_speed_spells);
 		if (tc_time_offset % rpt == 0 && !(tc_skipcast && tc_skip_cast(spell))) {
 			log("try casting " + spell);
 			tc_cast_spell(spell);
@@ -623,31 +657,31 @@ function tc_advsetup() {
 }
 
 function tc_get_auto_earn() {
-  // Find which action we can do
-  var act = tc_auto_earn_gold_override.trim();
-  if (tc_auto_earn_gold_override.trim()) {
-    var a = tc_actions.get(act);
-		if (a && !a.disabled) {
-			return act;
-		}
-  }
-  
-  for (let act in tc_actions_gold) {
+	// Find which action we can do
+	var act = tc_auto_earn_gold_override.trim();
+	if (tc_auto_earn_gold_override.trim()) {
 		var a = tc_actions.get(act);
 		if (a && !a.disabled) {
 			return act;
 		}
 	}
-  
-  return undefined;
+
+	for (let act in tc_actions_gold) {
+		var a = tc_actions.get(act);
+		if (a && !a.disabled) {
+			return act;
+		}
+	}
+
+	return undefined;
 }
 
 // Quick and dirty. Needs to be worked on to allow you to set which action to press for gold
 function tc_autoearngold() {
 	if (tc_suspend) return;
 	if (!tc_auto_earn_gold) return;
-  
-  var action = tc_get_auto_earn();
+
+	var action = tc_get_auto_earn();
 	if (!action) return; 	// no money-making actions available to us
 	var stam = tc_actions_gold[action] || '0.3';
 
@@ -665,8 +699,7 @@ function tc_autoearngold() {
 	}
 }
 
-var tc_skill_saved = "";
-var tc_skill_last = "";
+
 
 /* This function is called when tc_auto_focus_aggressive is enabled and we have more than one runner.
  One runner should always be resting and the other learning the skill. (If more than 2 runners could try multi-rest).
@@ -741,24 +774,20 @@ function tc_autofocus_multi(amt) {
 	tc_rest.click();	// Has no effect if already resting.
 }
 
-function sleep(ms) {
-  return new Promise(resolve => setTimeout(resolve, ms));
-}
 
 function tc_is_progress_complete(skillElement) {
-  var progressRaw = skillElement.children[1].childNodes[1].data.trim().substr(10);
-  var progress = parseInt(progressRaw.split('/')[0].trim().replace('K','000'));
-  var progressMax = parseInt(progressRaw.split('/')[1].trim().replace('K','000'));
-  
-  var progressComplete = progress >= progressMax;
-  if (tc_debug) console.log("Skill progress: " + progress + " / " + progressMax + " complete " + (progressComplete ? "yes" : "no"));
-  
-  return progressComplete;
+	var progressRaw = skillElement.children[1].childNodes[1].data.trim().substr(10);
+	var progress = parseInt(progressRaw.split('/')[0].trim().replace('K', '000'));
+	var progressMax = parseInt(progressRaw.split('/')[1].trim().replace('K', '000'));
+
+	var progressComplete = progress >= progressMax;
+	if (tc_debug) console.log("Skill progress: " + progress + " / " + progressMax + " complete " + (progressComplete ? "yes" : "no"));
+
+	return progressComplete;
 }
 
 // Uses focus until you have only 14 mana left.
-async function tc_autofocus()
-{
+async function tc_autofocus() {
 
 	if (tc_suspend) return;
 	if (!tc_auto_focus) return;
@@ -810,8 +839,8 @@ async function tc_autofocus()
 	var lowest_btn;
 	var skill_btn;
 	var skill_to_learn = "";
-  var skill_element;
-  var lowest_element;
+	var skill_element;
+	var lowest_element;
 	for (let qs of document.querySelectorAll(".skills .skill")) {
 		var skill = qs.firstElementChild.firstElementChild.innerHTML;
 		var btn = qs.querySelectorAll("button")[0];
@@ -822,7 +851,7 @@ async function tc_autofocus()
 			skill_to_learn = skill;
 			tc_skill_saved = skill;
 			skill_btn = btn;
-      skill_element = qs;
+			skill_element = qs;
 			if (tc_debug) console.log("Learning " + skill);
 
 			break;	// this takes precedence over anything else
@@ -840,30 +869,30 @@ async function tc_autofocus()
 			lowest_lvl = lvl;
 			lowest_skill = skill;
 			lowest_btn = btn;
-      lowest_element = qs;
+			lowest_element = qs;
 		}
 	}
-  
+
 	if (skill_to_learn == "") {
 		if (lowest_skill == "")	// nothing available to learn
 			return;
 
 		skill_to_learn = lowest_skill;
 		skill_btn = lowest_btn;
-    skill_element = lowest_element;
+		skill_element = lowest_element;
 		if (tc_debug) console.log("Learn lowest skill: " + skill_to_learn);
 
 	}
 
 	if (skill_btn.innerHTML.trim() == "Train") {
-    if (tc_debug) console.log("Clicking train for skill");
+		if (tc_debug) console.log("Clicking train for skill");
 		skill_btn.click();
-    
-    if (tc_is_progress_complete(skill_element)) {
-      if (tc_debug) console.log("Waiting for train to register");
-      await sleep(200);
-    }
-  }
+
+		if (tc_is_progress_complete(skill_element)) {
+			if (tc_debug) console.log("Waiting for train to register");
+			await sleep(200);
+		}
+	}
 
 	// We're not going to be doing anything else while focussing (apart from autocast spells),
 	// so just keep enough mana for the 3 mana spells.
@@ -908,7 +937,7 @@ function tc_colorpot() {
 }
 
 
-var tc_menu_inv_state = 0;
+
 
 /* We need to switch tabs to get lists of equipment, but need to allow time for tab to populate,
  so create a state machine, and do one action each tick.
@@ -1125,9 +1154,7 @@ function tc_inv_setup() {
 }
 
 
-// Functions to load and save settings from local storage and display configuration dialog.
-var bool_setting_list = ['tc_suspend','tc_auto_cast','tc_skipcast','tc_auto_focus','tc_auto_heal','tc_auto_misc','tc_use_sublimate','tc_auto_gather','tc_auto_grind','tc_auto_earn_gold','tc_auto_adv','tc_adventure_wait','tc_auto_focus_aggressive','tc_debug'];
-var int_setting_list = ['tc_auto_speed_spells','tc_auto_speed','tc_adventure_wait'];
+
 function tc_load_settings() {
 	for (let n of bool_setting_list) {
 		eval(n + "=" + (localStorage.getItem(n) === "true"));
@@ -1162,7 +1189,7 @@ function tc_load_settings() {
 	tc_auto_speed = get_val("tc_auto_speed", 1000, "int");
 	tc_auto_speed_spells = get_val("tc_auto_speed_spells", 950, "int");
 	tc_auto_earn_gold = get_val("tc_auto_earn_gold", false, "bool");
-  tc_auto_earn_gold_override = get_val("tc_auto_earn_gold_override", "", "string");
+	tc_auto_earn_gold_override = get_val("tc_auto_earn_gold_override", "", "string");
 	tc_auto_adv = get_val("tc_auto_adv", true, "bool");
 	tc_adventure_wait = get_val("tc_adventure_wait", 30, "int");	// needs to be below tc_auto_speed
 	tc_adventure_wait_cd = tc_adventure_wait;	//sets current cooldown to same time as wait period.
@@ -1181,15 +1208,14 @@ function tc_load_settings() {
 	document.getElementById("tc_auto_speed").value = tc_auto_speed;
 	document.getElementById("tc_auto_speed_spells").value = tc_auto_speed_spells;
 	document.getElementById("tc_auto_earn_gold").checked = tc_auto_earn_gold;
-  document.getElementById("tc_auto_earn_gold_override").value = tc_auto_earn_gold_override;
+	document.getElementById("tc_auto_earn_gold_override").value = tc_auto_earn_gold_override;
 	document.getElementById("tc_auto_adv").checked = tc_auto_adv;
 	document.getElementById("tc_adventure_wait").value = (tc_adventure_wait / 1000 * tc_auto_speed);
 	document.getElementById("tc_auto_focus_aggressive").checked = tc_auto_focus_aggressive;
 	document.getElementById("tc_debug").checked = tc_debug;
 }
 
-function tc_save_settings()
-{
+function tc_save_settings() {
 	tc_suspend = !document.getElementById("tc_suspend").checked;	// this one's backwards
 	tc_auto_cast = document.getElementById("tc_auto_cast").checked;
 	tc_skipcast = document.getElementById("tc_skipcast").checked;
@@ -1202,9 +1228,9 @@ function tc_save_settings()
 	tc_auto_speed = parseInt(document.getElementById("tc_auto_speed").value);
 	tc_auto_speed_spells = parseInt(document.getElementById("tc_auto_speed_spells").value);
 	tc_auto_earn_gold = document.getElementById("tc_auto_earn_gold").checked;
-  tc_auto_earn_gold_override = document.getElementById("tc_auto_earn_gold_override").value;
+	tc_auto_earn_gold_override = document.getElementById("tc_auto_earn_gold_override").value;
 	tc_auto_adv = document.getElementById("tc_auto_adv").checked;
-	tc_adventure_wait = (parseInt(document.getElementById("tc_adventure_wait").value) * 1000 / tc_auto_speed );
+	tc_adventure_wait = (parseInt(document.getElementById("tc_adventure_wait").value) * 1000 / tc_auto_speed);
 	tc_adventure_wait_cd = tc_adventure_wait; 	//sets current cooldown to same time as wait period.
 	tc_auto_focus_aggressive = document.getElementById("tc_auto_focus_aggressive").checked;
 	tc_debug = document.getElementById("tc_debug").checked;
@@ -1221,7 +1247,7 @@ function tc_save_settings()
 	localStorage.setItem("tc_auto_speed", tc_auto_speed);
 	localStorage.setItem("tc_auto_speed_spells", tc_auto_speed_spells);
 	localStorage.setItem("tc_auto_earn_gold", tc_auto_earn_gold);
-  localStorage.setItem("tc_auto_earn_gold_override", tc_auto_earn_gold_override);
+	localStorage.setItem("tc_auto_earn_gold_override", tc_auto_earn_gold_override);
 	localStorage.setItem("tc_auto_adv", tc_auto_adv);
 	localStorage.setItem("tc_adventure_wait", tc_adventure_wait);
 	localStorage.setItem("tc_auto_focus_aggressive", tc_auto_focus_aggressive);
@@ -1318,14 +1344,14 @@ function un_stress() {
 	for (let n of task_with_length) {
 		unsafeWindow.game.gdata[n].length.value = 1;
 	}
-	for (let n of ['stamina','mana','fire','air','earth','water','nature','shadow','light','spirit','tempus','chaos','void']) {
+	for (let n of ['stamina', 'mana', 'fire', 'air', 'earth', 'water', 'nature', 'shadow', 'light', 'spirit', 'tempus', 'chaos', 'void']) {
 		unsafeWindow.game.gdata[n].doUnlock();
 		unsafeWindow.game.gdata[n].rate.value = 100;
 	}
 	unsafeWindow.game.gdata['focus'].result.runner.exp = 100000000;
 }
 
-function unlock_tasks_and_upgrades(){
+function unlock_tasks_and_upgrades() {
 	var task_list = document.querySelectorAll(".main-tasks .task-list .task-btn");
 	var upgrade_list = document.querySelectorAll(".main-tasks .upgrade-list .task-btn");
 	for (let n of task_list) unsafeWindow.game.gdata[n.dataset.key].doUnlock();
@@ -1341,16 +1367,16 @@ function readableText(variable_name) {
 	return result;
 }
 
-function max_space(){
+function max_space() {
 	unsafeWindow.game.gdata['space'].max.value = 1000000;
 }
 
-function renderPanel(){
+function renderPanel() {
 	if (document.getElementById("open_god_panel")) return;
-	var config = document.querySelectorAll(".quickbar");if (config.length == 0) return;
+	var config = document.querySelectorAll(".quickbar"); if (config.length == 0) return;
 	config = config[0];
 
-	var button_list = function_list.map( a => `<button type="button" id="${a}" class="task-btn">${readableText(a)}</button>`);
+	var button_list = function_list.map(a => `<button type="button" id="${a}" class="task-btn">${readableText(a)}</button>`);
 	var html = `
 <div id="sinh_controll_panel" class="settings popup task-btn" style="display:none; background-color:#777; max-width:800px; position: absolute; bottom:15px; right: 15px; top: auto; left: auto;">
 ${button_list.join('')}
@@ -1472,11 +1498,6 @@ The advanced feature "try to learn faster in skills tab" will alternate between 
 	Basic Automation Stuff
 */
 
-// Main timer for most functions
-var tc_timer_ac;
-// Timer for spells.
-// Can't guarantee that timer will work exactly every second, so can reduce interval to compensate so spells don't run out
-var tc_timer_autocast;
 
 function tc_start_timers()	// can be restarted by save_settings()
 {
@@ -1520,9 +1541,9 @@ function tc_start_timers()	// can be restarted by save_settings()
 	}, tc_auto_speed_spells);
 }
 
+
 // Need to make sure page has finished loading before we try to add buttons and set up timers,
 // so check every 100ms for quickbar to become visible before doing anything.
-
 var tc_load_count = 0;	// just for interest
 var tc_load_timer = window.setInterval(function () {
 	var config = document.querySelectorAll(".quickbar");
