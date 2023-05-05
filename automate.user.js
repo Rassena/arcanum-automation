@@ -153,7 +153,6 @@ var tc_actions_gold = {
 
 };
 
-
 var tc_skill_saved = "";
 var tc_skill_last = "";
 
@@ -164,7 +163,6 @@ var int_setting_list = ['tc_auto_speed_spells', 'tc_auto_speed', 'tc_adventure_w
 var tc_menu_inv_state = 0;
 
 
-
 function log(message) {
 	if (tc_debug) return; console.log(message);
 }
@@ -173,6 +171,66 @@ function sleep(ms) {
 	return new Promise(resolve => setTimeout(resolve, ms));
 }
 
+
+// Check if a resource is above a percentage. example: tc_check_resource("gold",.5);	// that's not a % lol
+function tc_check_resource(resource, percent) {
+	return !tc_resources.get(resource) || tc_resources.get(resource)[0] >= tc_resources.get(resource)[1] * percent;
+}
+
+// Return name of current tab
+function tc_gettab() {
+	for (let tab of document.querySelectorAll("div.menu-items div.menu-item span")) {
+		var s = tab.innerHTML;
+		if (! /<\/u>/.test(s))
+			return s.slice(1, -1);	// strip off leading and trailing space
+	}
+}
+
+// Set current tab to "name", return false if no such tab available.
+function tc_settab(newtab) {
+	for (let tab of document.querySelectorAll("div.menu-items div.menu-item span")) {
+		if (tab.innerHTML.indexOf(newtab) != -1) {
+			tab.click();
+			return true;
+		}
+	}
+	return false;	// name not recognised, maybe not unlocked yet
+}
+
+//coloring potions in red :D
+function tc_colorpot() {
+	if (tc_gettab() !== "equip") return;
+	for (let item of document.querySelectorAll(".item-table .separate")) {
+		if (item.children[1].innerHTML == "Use") {
+			item.children[0].style["background-color"] = "red";
+		}
+	}
+}
+
+// Check if a bar(mana etc) is above a percentage.
+function tc_check_bars(bars, percent) {
+	return !tc_bars.get(bars) || tc_bars.get(bars)[0] >= tc_bars.get(bars)[1] * percent;
+}
+
+// Check if you are in an adventure
+function tc_check_running_adv() {
+	for (let qs of tc_running.keys()) {
+		if (qs.split(/⚔|🎃|🌳|📖/).length == 2) return true;
+	}
+	return false;
+}
+
+// Check if Skill progress complete 
+function tc_is_progress_complete(skillElement) {
+	var progressRaw = skillElement.children[1].childNodes[1].data.trim().substr(10);
+	var progress = parseInt(progressRaw.split('/')[0].trim().replace('K', '000'));
+	var progressMax = parseInt(progressRaw.split('/')[1].trim().replace('K', '000'));
+
+	var progressComplete = progress >= progressMax;
+	if (tc_debug) console.log("Skill progress: " + progress + " / " + progressMax + " complete " + (progressComplete ? "yes" : "no")); //WHY it is "yes"/"no" ?? better true/false
+
+	return progressComplete;
+}
 
 // Call this every second - will automatically pick up new spells
 function tc_populate_spells() {
@@ -276,42 +334,34 @@ function tc_populate_running() {
 	}
 }
 
-// Check if a resource is above a percentage. example: tc_check_resource("gold",.5);	// that's not a % lol
-function tc_check_resource(resource, percent) {
-	return !tc_resources.get(resource) || tc_resources.get(resource)[0] >= tc_resources.get(resource)[1] * percent;
-}
 
-// Check if a bar(mana etc) is above a percentage.
-function tc_check_bars(bars, percent) {
-	return !tc_bars.get(bars) || tc_bars.get(bars)[0] >= tc_bars.get(bars)[1] * percent;
-}
+// Clicks the spell button
+function tc_cast_spell(spell) {
 
-// Check if you are in an adventure
-function tc_check_running_adv() {
-	for (let qs of tc_running.keys()) {
-		if (qs.split(/⚔|🎃|🌳|📖/).length == 2) return true;
-	}
-	return false;
-}
+    var spl = tc_spells.get(spell);
+    if (!spl){
+        return false;
+    }
+    if (spl.disabled) {
+        log("Spell '" + spell + "' was disabled");
+        return false;
+    }
 
-// Return name of current tab
-function tc_gettab() {
-	for (let tab of document.querySelectorAll("div.menu-items div.menu-item span")) {
-		var s = tab.innerHTML;
-		if (! /<\/u>/.test(s))
-			return s.slice(1, -1);	// strip off leading and trailing space
-	}
-}
+    if (tc_gettab() !== "spells") return;
+	//bruteforced casting on Spell list (somehow tc_spells have incorrect button element)
+    for (let qs of document.querySelectorAll(".spells .bottom .spellbook table tr")) {
+        if (qs.childElementCount == 3) {
+            if (spell == qs.children[1].innerHTML.toLowerCase()) {
+                if (qs.children[2].firstChild.innerText.toLowerCase() == "cast") {
+                    tc_spells.set(spell, qs.children[2].firstChild);
+                }
+            }
+        }
+    }
 
-// Set current tab to "name", return false if no such tab available.
-function tc_settab(newtab) {
-	for (let tab of document.querySelectorAll("div.menu-items div.menu-item span")) {
-		if (tab.innerHTML.indexOf(newtab) != -1) {
-			tab.click();
-			return true;
-		}
-	}
-	return false;	// name not recognised, maybe not unlocked yet
+    log("Casting: " + spell);
+    spl.click();
+    return true;
 }
 
 // Clicks the selected adventure button
@@ -345,22 +395,6 @@ function tc_click_action(action) {
 	log("Clicking: " + action);
 	act.click();
 	return true;	// click might still have failed
-}
-
-// Clicks the spell button
-function tc_cast_spell(spell) {
-	var spl = tc_spells.get(spell);
-	if (!spl) return false;
-
-	if (spl.disabled) {	// not sure how this happens, but seems to prevent action ever being called again
-		log("Spell '" + spell + "' was disabled - deleting it");
-		tc_spells.delete(spell);
-		return false;
-	}
-
-	log("Casting: " + spell);
-	spl.click();
-	return true;
 }
 
 // Adds an input field to each button on the quickbar to allow casting at regular intervals. Author: iko
@@ -699,8 +733,6 @@ function tc_autoearngold() {
 	}
 }
 
-
-
 /* This function is called when tc_auto_focus_aggressive is enabled and we have more than one runner.
  One runner should always be resting and the other learning the skill. (If more than 2 runners could try multi-rest).
  If someone chooses a skill then stick with that until maxed, otherwise rotate amongst them choosing lowest level.
@@ -772,18 +804,6 @@ function tc_autofocus_multi(amt) {
 
 	// if tc_runners > 2 could try clicking other sorts of rest as well
 	tc_rest.click();	// Has no effect if already resting.
-}
-
-
-function tc_is_progress_complete(skillElement) {
-	var progressRaw = skillElement.children[1].childNodes[1].data.trim().substr(10);
-	var progress = parseInt(progressRaw.split('/')[0].trim().replace('K', '000'));
-	var progressMax = parseInt(progressRaw.split('/')[1].trim().replace('K', '000'));
-
-	var progressComplete = progress >= progressMax;
-	if (tc_debug) console.log("Skill progress: " + progress + " / " + progressMax + " complete " + (progressComplete ? "yes" : "no"));
-
-	return progressComplete;
 }
 
 // Uses focus until you have only 14 mana left.
@@ -926,15 +946,7 @@ function tc_autoheal() {
 	}
 }
 
-//coloring potions in red :D
-function tc_colorpot() {
-	if (tc_gettab() !== "equip") return;
-	for (let item of document.querySelectorAll(".item-table .separate")) {
-		if (item.children[1].innerHTML == "Use") {
-			item.children[0].style["background-color"] = "red";
-		}
-	}
-}
+
 
 
 
@@ -1152,7 +1164,6 @@ function tc_inv_setup() {
 
 	log("Inventory tab added");
 }
-
 
 
 function tc_load_settings() {
