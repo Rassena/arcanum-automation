@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name         aardvark arcanum auto - Rassena's fork
-// @version      0.10.25
+// @version      1025001
 // @author       aardvark, Linspatz, Harrygiel, Sing, Rassena
 // @description  Automates casting buffs, buying gems making types gems, making lore. Adds sell junk/dupe item buttons. Must open the main tab and the spells tab once to work. Add some hack feature ^^
 // @downloadURL  https://github.com/Rassena/arcanum-automation/blob/master/automate.user.js
