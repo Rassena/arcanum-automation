@@ -273,10 +273,14 @@ function tc_populate_resources() {
 		resources = document.querySelectorAll("div.game-main div.res-list div");
 	for (let n of resources) {
 		var name = n.firstElementChild.innerHTML.toLowerCase();
-		var vals = n.lastElementChild.innerHTML.split("/");
-		var val0 = parseInt(vals[0]);
-		var val1 = parseInt(vals[1]);
-		tc_resources.set(name, [val0, val1]);
+		if (typeof name == 'string' && !(name.includes('class="arrows"')||name.includes('class="item-name"')||name =="")){
+			var vals = n.lastElementChild.innerHTML.split("/");
+			var val0 = parseInt(vals[0]);
+			var val1 = parseInt(vals[1]);
+			tc_resources.set(name, [val0, val1]);
+			//log(`saved resource: ${name} ${tc_resources.get(name)}`);
+		}
+		//log(`ignore resource: ${name}`);
 	}
 }
 
@@ -288,9 +292,8 @@ function tc_populate_bars() {
 		var val0 = parseFloat(vals[0]);
 		var val1 = parseFloat(vals[1]);
 		tc_bars.set(name, [val0, val1]);
-		log(`saved: ${name} ${tc_bars.get(name)}`);
+		log(`saved bar: ${name} ${tc_bars.get(name)}`);
 	}
-	log("mana: "+  tc_bars.get("mana"))
 }
 
 
@@ -298,13 +301,6 @@ function tc_populate_bars() {
 function tc_populate_actions() {
 	if (tc_gettab() !== "main") return;
 
-	for (let qs of document.querySelectorAll(".main-tasks .task-list .task-btn:not(.locked) .wrapped-btn:not([disabled])")) {
-		var key = qs.innerHTML.toLowerCase();
-		if (!tc_actions.get(key)) {
-			tc_actions.set(key, qs);
-			log("Action stored: " + qs.innerHTML);
-		}
-	}
 	for (let qs of document.querySelectorAll(".main-tasks .task-list .task-btn:not(.locked) .wrapped-btn:not([disabled])")) {
 		var key = qs.innerHTML.toLowerCase();
 		if (!tc_actions.get(key)) {
@@ -341,11 +337,10 @@ function tc_populate_running() {
 // Clicks the spell button
 function tc_cast_spell(spell) {
 
-    var spl = tc_spells.get(spell);
-    if (!spl){
+    if (!tc_spells.get(spell)){
         return false;
     }
-    if (spl.disabled) {
+    if (tc_spells.get(spell).disabled) {
         log("Spell '" + spell + "' was disabled");
         return false;
     }
@@ -357,13 +352,13 @@ function tc_cast_spell(spell) {
             if (spell == qs.children[1].innerHTML.toLowerCase()) {
                 if (qs.children[2].firstChild.innerText.toLowerCase() == "cast") {
                     tc_spells.set(spell, qs.children[2].firstChild);
+					log("Casting: " + spell);
+					tc_spells.get(spell).click()
                 }
             }
         }
     }
 
-    log("Casting: " + spell);
-    spl.click();
     return true;
 }
 
