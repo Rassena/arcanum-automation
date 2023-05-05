@@ -1,18 +1,12 @@
 // ==UserScript==
-// @name         aardvark arcanum auto - Harrygiel's fork
-// @version      2007
-// @author       aardvark, Linspatz, Harrygiel, Sing
+// @name         aardvark arcanum auto - Rassena's fork
+// @version      0.10.25
+// @author       aardvark, Linspatz, Harrygiel, Sing, Rassena
 // @description  Automates casting buffs, buying gems making types gems, making lore. Adds sell junk/dupe item buttons. Must open the main tab and the spells tab once to work. Add some hack feature ^^
-// @downloadURL  https://github.com/Harrygiel/arcanum-automation/edit/master/automate.user.js
-// @updateURL    https://github.com/Harrygiel/arcanum-automation/edit/master/automate.user.js
-// @match        http://www.lerpinglemur.com/arcanum/*
-// @match        https://www.lerpinglemur.com/arcanum/*
+// @downloadURL  https://github.com/Rassena/arcanum-automation/blob/master/automate.user.js
+// @updateURL    https://github.com/Rassena/arcanum-automation/blob/master/automate.user.js
 // @match        https://mathiashjelm.gitlab.io/arcanum/*
 // @match        https://arcanumtesting.gitlab.io/arcanum/*
-// @match        http://game312933.konggames.com/gamez/0031/2933/*
-// @match        https://game312933.konggames.com/gamez/0031/2933/*
-// @match        http://www.kongregate.com/games/lerpinglemur/theory-of-magic
-// @match        https://www.kongregate.com/games/lerpinglemur/theory-of-magic*
 // @run-at       document-idle
 // ==/UserScript==
 
@@ -40,6 +34,7 @@ var tc_auto_focus_aggressive = false;
 var tc_auto_adventure = "";
 var tc_adventure_wait = 3;//How many ticks to wait to rerun an adventure
 var tc_adventure_wait_cd = 30;//Counts down
+
 /* The following can be increased by encounters in the adventure listed.
 (Stat) - ("dungeon name") (increased amount) (chance to get the encounter needed)
 Skills:
