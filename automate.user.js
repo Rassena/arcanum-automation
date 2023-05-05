@@ -288,8 +288,11 @@ function tc_populate_bars() {
 		var val0 = parseFloat(vals[0]);
 		var val1 = parseFloat(vals[1]);
 		tc_bars.set(name, [val0, val1]);
+		log(`saved: ${name} ${tc_bars.get(name)}`);
 	}
+	log("mana: "+  tc_bars.get("mana"))
 }
+
 
 // Call every second to look for new buttons and ones that are now active.
 function tc_populate_actions() {
@@ -421,9 +424,9 @@ function iko_autocast() {
 function tc_skip_cast(spell) {
 	//Add sanity checks to some autocasting spells
 	//No heals at full health
-	if (spell == "pulsing light" && tc_bars.get("hp")[1] - tc_bars.get("hp")[0] <= 5) return true;
-	if (spell == "pulsing light II" && tc_bars.get("hp")[1] - tc_bars.get("hp")[0] <= 25) return true;
-	if (spell == "pulsing light III" && tc_bars.get("hp")[1] - tc_bars.get("hp")[0] <= 50) return true;
+	if (spell == "pulsing light" && tc_bars.get("life")[1] - tc_bars.get("life")[0] <= 5) return true;
+	if (spell == "pulsing light II" && tc_bars.get("life")[1] - tc_bars.get("life")[0] <= 25) return true;
+	if (spell == "pulsing light III" && tc_bars.get("life")[1] - tc_bars.get("life")[0] <= 50) return true;
 
 	//No herb generating spells if herbs are full
 	if (spell == "wild growth" && tc_check_resource("herbs", 1)) return true;
@@ -932,16 +935,16 @@ function tc_autoheal() {
 	if (!tc_auto_heal) return;
 
 	if (tc_spells.has("sealing light iii")) {
-		if (tc_bars.get("hp")[1] - tc_bars.get("hp")[0] >= 100 && tc_bars.get("light")[1] >= 7)
+		if (tc_bars.get("life")[1] - tc_bars.get("life")[0] >= 100 && tc_bars.get("light")[1] >= 7)
 			tc_cast_spell("sealing light iii")
 		return;
 	}
 
 	if (tc_spells.has("sealing light ii")) {
-		if (tc_bars.get("hp")[1] - tc_bars.get("hp")[0] >= 50 && tc_bars.get("light")[1] >= 5)
+		if (tc_bars.get("life")[1] - tc_bars.get("life")[0] >= 50 && tc_bars.get("light")[1] >= 5)
 			tc_cast_spell("sealing light ii");
 	} else if (tc_spells.has("sealing light")) {
-		if (tc_bars.get("hp")[1] - tc_bars.get("hp")[0] >= 15 && tc_bars.get("light")[1] >= 5)
+		if (tc_bars.get("life")[1] - tc_bars.get("life")[0] >= 15 && tc_bars.get("light")[1] >= 5)
 			tc_cast_spell("sealing light");
 	}
 }
